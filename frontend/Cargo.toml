@@ -1,0 +1,83 @@
+[package]
+name = "wealth-hunter-frontend"
+version = "0.1.0"
+edition = "2021"
+authors = ["A-PCO Team"]
+license = "MIT"
+description = "Frontend for Wealth Hunter quant trading system (Leptos + Tauri)"
+repository = "https://github.com/A-PCO/Wealth-Hunter"
+readme = "README.md"
+keywords = ["trading", "quant", "rust", "leptos", "wasm"]
+categories = ["finance", "trading", "wasm"]
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+path = "src/lib.rs"
+
+[dependencies]
+leptos = { version = "0.7", features = ["csr", "hydration"] }
+leptos_router = { version = "0.7" }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+base64 = "0.21"
+futures = "0.3"
+async-trait = "0.1"
+
+wasm-bindgen = "0.2"
+wasm-bindgen-futures = "0.4"
+js-sys = "0.3"
+web-sys = { version = "0.3", features = [
+    "console",
+    "Crypto",
+    "SubtleCrypto",
+    "WebSocket",
+    "Request",
+    "RequestInit",
+    "RequestMode",
+    "Response",
+    "Headers",
+    "Window",
+    "Document",
+    "Element",
+    "HtmlElement",
+    "Performance",
+] }
+
+console_error_panic_hook = "0.1"
+tracing = "0.1"
+tracing-wasm = "0.2"
+log = "0.4"
+
+[dev-dependencies]
+wasm-bindgen-test = "0.3"
+
+[lints.clippy]
+cast_precision_loss = "allow"
+cast_possible_truncation = "allow"
+cast_sign_loss = "allow"
+cast_possible_wrap = "allow"
+unreadable_literal = "allow"
+unused_self = "allow"
+unused_async = "allow"
+missing_errors_doc = "allow"
+missing_panics_doc = "allow"
+must_use_candidate = "allow"
+too_many_lines = "allow"
+match_same_arms = "allow"
+assigning_clones = "allow"
+inline_always = "allow"
+for_kv_map = "allow"
+
+[package.metadata.wasm-pack.profile.release]
+wasm-opt = false
+
+[package.metadata.wasm-pack]
+wasm-opt = false
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+debug = false
+strip = "symbols"
+panic = "abort"
