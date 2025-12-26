@@ -19,8 +19,8 @@ resolver = "2"
 members = [
     "backend",
     "frontend",
-    "src-tauri", "wealth-hunter-wasm-bindings",
-]  # 保留backend和frontend成员，添加src-tauri
+    "src-tauri",
+]
 # 构建配置
 [profile.release]
 opt-level = 3

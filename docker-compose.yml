@@ -9,7 +9,7 @@ services:
     ports:
       - "8080:8080"
     environment:
-      - RUST_LOG=info
+      - RUST_LOG=error
       - RUST_BACKTRACE=1
     volumes:
       - ./data:/app/data
