@@ -1,0 +1,115 @@
+[package]
+name = "wealth-hunter"
+version = "0.1.0"
+edition = "2021"
+authors = ["A-PCO Team"]
+license = "MIT"
+description = "Wealth Hunter - A high-performance quantitative trading system built with Rust"
+repository = "https://github.com/A-PCO/Wealth-Hunter"
+readme = "README.md"
+keywords = ["trading", "quant", "rust", "algorithmic-trading"]
+categories = ["finance", "trading"]
+
+[lib]
+name = "wealth_hunter"
+path = "src/lib.rs"
+
+[workspace]
+resolver = "2"
+members = [
+    "backend",
+    "frontend",
+    "src-tauri", "wealth-hunter-wasm-bindings",
+]  # 保留backend和frontend成员，添加src-tauri
+# 构建配置
+[profile.release]
+opt-level = 3
+codegen-units = 1
+incremental = false
+debug = true # Enable debug symbols to generate PDB and increase size
+# strip = "debuginfo" 
+# lto = true
+
+[profile.dev]
+opt-level = 1
+incremental = true
+
+[profile.bench]
+opt-level = 3
+lto = true
+codegen-units = 1
+incremental = false
+strip = "debuginfo"
+
+[profile.release.package.wealth-hunter-frontend]
+opt-level = "z"
+codegen-units = 1
+strip = true
+# panic = "abort" # Cannot set panic for specific package in workspace
+
+[workspace.dependencies]
+# 核心依赖
+linfa = "^0.7"
+tokio = { version = "^1.37", features = ["full"] }
+tokio-test = "^0.4"  # 添加这一行
+crossbeam-channel = "^0.5"
+nalgebra = "^0.32"
+ndarray = { version = "^0.15", features = ["serde"] }
+ndarray-linalg = { version = "^0.15", features = ["pure"] }
+rand = "^0.8"
+serde = { version = "^1.0", features = ["derive"] }
+serde_json = "^1.0"
+log = "^0.4"
+env_logger = "^0.11"
+sqlx = { version = "0.7", features = ["runtime-tokio-rustls", "sqlite", "chrono", "json"] }
+
+# Web框架
+actix-web = "^4.0"
+
+# 调试工具
+egui = "^0.27"
+enigo = "^0.6.1"
+chrono = "^0.4"
+
+# 性能优化
+simd-adler32 = "^0.3"
+num-traits = "^0.2"
+num-integer = "^0.1"
+rayon = "^1.10"
+smallvec = { version = "^1.13", features = ["serde"] }
+
+# 测试依赖
+futures = "^0.3"
+criterion = "^0.5"
+proptest = "^1.4"
+
+# Rust编译器和Clippy静态分析配置
+[workspace.lints]
+# 启用严格的Rust编译器lint
+rust.unused_imports = "deny"
+rust.unused_variables = "deny"
+rust.unused_mut = "deny"
+rust.dead_code = "warn"
+rust.missing_docs = "warn"
+
+# 启用严格的Clippy lint
+clippy.all.level = "deny"
+clippy.all.priority = -1
+clippy.pedantic.level = "deny"
+clippy.pedantic.priority = -1
+clippy.cargo.level = "deny"
+clippy.cargo.priority = -1
+clippy.nursery.level = "warn"
+clippy.nursery.priority = -1
+
+# 特定允许的Clippy lint
+clippy.module_name_repetitions = "allow"
+clippy.missing_errors_doc = "allow"
+clippy.missing_panics_doc = "allow"
+clippy.must_use_candidate = "allow"
+clippy.similar_names = "allow"
+clippy.too_many_lines = "allow"
+clippy.type_complexity = "allow"
+clippy.unreadable_literal = "allow"
+clippy.new_without_default = "allow"
+clippy.multiple_crate_versions = "allow"

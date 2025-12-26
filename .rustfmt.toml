@@ -1,0 +1,13 @@
+# Rust代码格式化配置
+
+# 基本配置
+tab_spaces = 4
+max_width = 100
+edition = "2021"
+
+# 代码风格配置
+newline_style = "Unix"
+use_small_heuristics = "Default"
+
+# 结构格式化
+struct_lit_width = 0
