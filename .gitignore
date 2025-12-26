@@ -22,3 +22,8 @@ deploy/
 dist/
 node_modules/
 *.profraw
+backend/
+frontend/
+src-tauri/
+scripts/
+
