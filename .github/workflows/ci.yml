@@ -1,0 +1,332 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  backend-checks:
+    name: Backend Quality Checks
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        rust-version: [stable, nightly]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: ${{ matrix.rust-version }}
+          override: true
+          components: clippy, rustfmt, rust-src
+
+      - name: Cache cargo dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
+
+      - name: Check formatting
+        run: |
+          cd backend
+          cargo fmt --all -- --check
+
+      - name: Run Clippy
+        run: |
+          cd backend
+          cargo clippy --all-features -- -D warnings
+
+      - name: Build backend
+        run: |
+          cd backend
+          cargo build --release --all-features
+
+      - name: Run unit tests
+        run: |
+          cd backend
+          cargo test --release --lib --all-features
+
+      - name: Run integration tests
+        run: |
+          cd backend
+          cargo test --release --test '*' --all-features
+
+  frontend-checks:
+    name: Frontend Quality Checks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+          components: clippy, rustfmt
+
+      - name: Install wasm-pack
+        run: cargo install wasm-pack
+
+      - name: Cache cargo dependencies
+        uses: Swatinem/rust-cache@v2
+
+      - name: Check formatting
+        run: |
+          cd frontend
+          cargo fmt --all -- --check
+
+      - name: Run Clippy
+        run: |
+          cd frontend
+          cargo clippy --all -- -D warnings
+
+      - name: Build frontend
+        run: |
+          cd frontend
+          cargo build --release
+
+      - name: Run frontend tests
+        run: |
+          cd frontend
+          cargo test --release
+
+  coverage:
+    name: Code Coverage
+    runs-on: ubuntu-latest
+    needs: backend-checks
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+
+      - name: Install tarpaulin
+        run: cargo install cargo-tarpaulin
+
+      - name: Install grcov
+        run: cargo install grcov
+
+      - name: Cache cargo dependencies
+        uses: Swatinem/rust-cache@v2
+
+      - name: Run coverage
+        run: |
+          cd backend
+          cargo clean
+          CARGO_INCREMENTAL=0 cargo tarpaulin --out Xml --output-dir ./coverage -- --test-threads=1
+
+      - name: Generate coverage report
+        run: |
+          cd backend
+          cargo tarpaulin --out Html --output-dir ./coverage/html
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v3
+        with:
+          file: ./backend/cobertura.xml
+          flags: unittests
+          name: codecov-umbrella
+          fail_ci_if_error: false
+          token: ${{ secrets.CODECOV_TOKEN }}
+
+      - name: Archive coverage reports
+        uses: actions/upload-artifact@v3
+        with:
+          name: coverage-reports
+          path: |
+            backend/cobertura.xml
+            backend/coverage/html/
+          retention-days: 30
+
+  security-audit:
+    name: Security Audit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+
+      - name: Install cargo-audit
+        run: cargo install cargo-audit
+
+      - name: Run security audit
+        run: |
+          cd backend
+          cargo audit
+        continue-on-error: true
+
+      - name: Install cargo-outdated
+        run: cargo install cargo-outdated
+
+      - name: Check for outdated dependencies
+        run: |
+          cd backend
+          cargo outdated --exit-code 1
+        continue-on-error: true
+
+  performance-benchmark:
+    name: Performance Benchmark
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+
+      - name: Cache cargo dependencies
+        uses: Swatinem/rust-cache@v2
+
+      - name: Run performance tests
+        run: |
+          cd backend
+          cargo test --release --test performance_tests
+
+      - name: Upload benchmark results
+        uses: actions/upload-artifact@v3
+        with:
+          name: benchmark-results
+          path: backend/target/release/deps/
+          retention-days: 30
+
+  release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    needs: [backend-checks, frontend-checks, coverage, security-audit]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+
+      - name: Install wasm-pack
+        run: cargo install wasm-pack
+
+      - name: Cache cargo dependencies
+        uses: Swatinem/rust-cache@v2
+
+      - name: Build backend release
+        run: |
+          cd backend
+          cargo build --release --all-features
+
+      - name: Build frontend release
+        run: |
+          cd frontend
+          wasm-pack build --release
+
+      - name: Create release directory
+        run: |
+          mkdir -p release-artifacts
+          cp backend/target/release/wealth_hunter release-artifacts/
+          cp backend/target/release/audit.exe release-artifacts/
+          cp backend/target/release/diagnose_engine.exe release-artifacts/
+          cp backend/target/release/test_ooda_act.exe release-artifacts/
+          cp backend/target/release/verify_performance.exe release-artifacts/
+          cp backend/target/release/verify_ooda_refactor.exe release-artifacts/
+          cp -r frontend/pkg release-artifacts/frontend
+
+      - name: Create GitHub Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: v${{ github.run_number }}
+          release_name: Release v${{ github.run_number }}
+          draft: false
+          prerelease: false
+          body: |
+            ## Changes in this release
+            - Automated release from CI/CD pipeline
+
+            ## Installation
+            - Backend: Extract `wealth_hunter` from the release
+            - Frontend: Extract `frontend/pkg` directory
+
+            ## Testing
+            All tests passed successfully
+            Code coverage: Available in artifacts
+
+      - name: Upload backend binary
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./release-artifacts/wealth_hunter
+          asset_name: wealth_hunter
+          asset_content_type: application/octet-stream
+
+      - name: Upload audit tool
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./release-artifacts/audit.exe
+          asset_name: audit.exe
+          asset_content_type: application/octet-stream
+
+      - name: Upload frontend package
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./release-artifacts/frontend
+          asset_name: frontend.zip
+          asset_content_type: application/zip
+
+      - name: Upload release artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: release-artifacts
+          path: release-artifacts
+          retention-days: 90
+
+  notify:
+    name: Notify Status
+    runs-on: ubuntu-latest
+    needs: [backend-checks, frontend-checks, coverage, security-audit, release]
+    if: always()
+    steps:
+      - name: Send notification
+        run: |
+          if [ "${{ needs.backend-checks.result }}" == "success" ] && \
+             [ "${{ needs.frontend-checks.result }}" == "success" ] && \
+             [ "${{ needs.coverage.result }}" == "success" ]; then
+            echo "✅ All CI/CD checks passed successfully!"
+          else
+            echo "❌ Some CI/CD checks failed. Please review the logs."
+            exit 1
+          fi

@@ -1,0 +1,53 @@
+version: '3.8'
+
+services:
+  wealth-hunter:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: wealth-hunter
+    ports:
+      - "8080:8080"
+    environment:
+      - RUST_LOG=info
+      - RUST_BACKTRACE=1
+    volumes:
+      - ./data:/app/data
+      - ./config:/app/config
+    restart: unless-stopped
+    networks:
+      - wealth-hunter-network
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: wealth-hunter-db
+    environment:
+      POSTGRES_DB: wealth_hunter
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
+    networks:
+      - wealth-hunter-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: wealth-hunter-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    restart: unless-stopped
+    networks:
+      - wealth-hunter-network
+
+volumes:
+  postgres-data:
+  redis-data:
+
+networks:
+  wealth-hunter-network:
+    driver: bridge
